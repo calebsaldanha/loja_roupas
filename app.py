@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import urllib.parse
+import requests # Nova biblioteca para baixar as imagens
 
 # Configuração da página
 st.set_page_config(page_title="Vitrine de Peças", layout="wide")
@@ -16,14 +17,25 @@ def carregar_dados():
     df = df[df['Estoque Atual'] > 0]
     return df
 
-def extrair_link_direto_drive(url):
+# Extrai apenas o ID do link
+def extrair_id_drive(url):
     if pd.isna(url) or not isinstance(url, str):
         return None
     match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
-    if match:
-        # Nova rota usando a API de Thumbnail do Google Drive para evitar o bloqueio de segurança
-        return f"https://drive.google.com/thumbnail?id={match.group(1)}&sz=w800"
-    return url
+    return match.group(1) if match else None
+
+# Baixa a imagem nos bastidores (com cache para não deixar o site lento)
+@st.cache_data(show_spinner=False, ttl=3600)
+def carregar_imagem_bytes(id_imagem):
+    url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        resposta = requests.get(url, headers=headers, timeout=10)
+        if resposta.status_code == 200:
+            return resposta.content
+    except:
+        return None
+    return None
 
 try:
     df = carregar_dados()
@@ -31,7 +43,7 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-# Substitua pelo seu número de WhatsApp
+# Seu número
 numero_telemovel = "5511957602740" 
 
 if df.empty:
@@ -43,14 +55,17 @@ else:
         with colunas[index % 3]:
             with st.container(border=True):
                 
-                link_original = row.get('Foto Link', None)
-                img_url = extrair_link_direto_drive(link_original)
+                id_imagem = extrair_id_drive(row.get('Foto Link', None))
                 
-                if img_url:
-                    # Usando o parâmetro correto para a sua versão do Streamlit
-                    st.image(img_url, use_container_width=True)
+                if id_imagem:
+                    img_bytes = carregar_imagem_bytes(id_imagem)
+                    if img_bytes:
+                        # width="stretch" resolve os avisos amarelos no terminal
+                        st.image(img_bytes, width="stretch")
+                    else:
+                        st.info("📷 Imagem indisponível no Drive")
                 else:
-                    st.info("📷 Imagem não disponível")
+                    st.info("📷 Sem link cadastrado")
                     
                 st.subheader(row.get('Descrição', 'Sem Descrição'))
                 st.write(f"**Tamanho:** {row.get('Tamanho', '-')} | **Cor:** {row.get('Cor', '-')}")
