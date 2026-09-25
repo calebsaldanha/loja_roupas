@@ -6,59 +6,33 @@ import urllib.parse
 # ==========================================
 # 🎨 CONFIGURAÇÃO DE IDENTIDADE VISUAL
 # ==========================================
-# Cole aqui o link RAW da imagem que você subir no GitHub!
-URL_BANNER_GITHUB = "https://github.com/calebsaldanha/loja_roupas/blob/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
+# Link RAW corrigido (direto para a imagem, sem a interface do GitHub)
+URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
 
 st.set_page_config(
     page_title="SALDANHA OUTLET | Moda Exclusiva",
-    page_icon="🍷",
+    page_icon="",
     layout="wide"
 )
 
 # Estilização CSS integrando a sua imagem de fundo
 st.markdown(f"""
     <style>
+    /* Fundo geral da página (mantido limpo para destacar as roupas) */
     .main {{
         background-color: #faf8f8;
     }}
     
-    /* Header da Loja com Imagem de Fundo (AI) */
+    /* Header da Loja com a Imagem que contém a logo */
     .brand-header {{
-        background-image: linear-gradient(rgba(88, 24, 69, 0.7), rgba(40, 10, 30, 0.85)), url("{URL_BANNER_GITHUB}");
+        background-image: url("{URL_BANNER_GITHUB}");
         background-size: cover;
         background-position: center;
-        padding: 4rem 2rem;
+        width: 100%;
+        height: 350px; /* Altura ajustada para mostrar bem o banner */
         border-radius: 16px;
-        color: white;
-        text-align: center;
         margin-bottom: 2rem;
         box-shadow: 0 10px 30px rgba(88, 24, 69, 0.3);
-    }}
-    .brand-title {{
-        font-size: 3.5rem;
-        font-weight: 900;
-        letter-spacing: 3px;
-        margin-bottom: 0.2rem;
-        color: #ffffff;
-        text-transform: uppercase;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    }}
-    .brand-subtitle {{
-        font-size: 1.3rem;
-        letter-spacing: 5px;
-        color: #e0b0c0;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        text-transform: uppercase;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-    }}
-    .brand-description {{
-        font-size: 1.1rem;
-        color: #fce4ec;
-        font-weight: 300;
-        max-width: 650px;
-        margin: 0 auto;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }}
 
     /* Cartões de Produtos */
@@ -104,13 +78,9 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# Aplica o HTML do Cabeçalho
+# Aplica o HTML do Cabeçalho (Agora apenas a div vazia, pois a imagem já tem o texto)
 st.markdown("""
-    <div class="brand-header">
-        <div class="brand-title">Saldanha</div>
-        <div class="brand-subtitle">Outlet</div>
-        <div class="brand-description">Peças novas originais com etiqueta. Elegância e exclusividade ao seu alcance com atendimento direto no WhatsApp.</div>
-    </div>
+    <div class="brand-header"></div>
 """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=60)
