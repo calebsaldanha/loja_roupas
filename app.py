@@ -6,7 +6,6 @@ import urllib.parse
 # ==========================================
 # 🎨 CONFIGURAÇÃO DE IDENTIDADE VISUAL
 # ==========================================
-# Link RAW (direto para a imagem, sem a interface do GitHub)
 URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
 
 st.set_page_config(
@@ -17,7 +16,6 @@ st.set_page_config(
 # CSS Ajustado para Dark Mode e Imagem de Fundo na Tela Inteira
 st.markdown(f"""
     <style>
-    /* Aplica a imagem como fundo de toda a página (main) */
     .stApp {{
         background-image: linear-gradient(rgba(20, 5, 15, 0.8), rgba(20, 5, 15, 0.9)), url("{URL_BANNER_GITHUB}");
         background-size: cover;
@@ -25,7 +23,6 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     
-    /* Header (Texto flutuando sobre o fundo escuro) */
     .header-text {{
         text-align: center;
         padding-top: 3rem;
@@ -50,7 +47,6 @@ st.markdown(f"""
         margin-bottom: 20px;
     }}
     
-    /* Cartões de Produtos - Vidro Fosco (Glassmorphism) */
     div[data-testid="stVerticalBlockBorderWrapper"] {{
         border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -65,13 +61,11 @@ st.markdown(f"""
         border-color: rgba(216, 150, 168, 0.5);
     }}
     
-    /* Textos dentro dos cartões */
     div[data-testid="stVerticalBlockBorderWrapper"] p, 
     div[data-testid="stVerticalBlockBorderWrapper"] h3 {{
         color: #f0f0f0 !important;
     }}
 
-    /* Botões Principais */
     .stButton button {{
         background-color: #8c2452;
         color: white;
@@ -92,7 +86,6 @@ st.markdown(f"""
         margin: 5px 0 15px 0;
     }}
 
-    /* Barra Lateral - Ajustada para Dark Mode */
     section[data-testid="stSidebar"] {{
         background-color: rgba(20, 5, 15, 0.85);
         border-right: 1px solid rgba(255, 255, 255, 0.05);
@@ -104,7 +97,6 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# Títulos desenhados via HTML (Ficam por cima do fundo da página)
 st.markdown("""
     <div class="header-text">
         <div class="brand-title">Saldanha</div>
@@ -143,7 +135,7 @@ if 'carrinho' not in st.session_state:
 numero_telemovel = "5511957602740" 
 
 # ==========================================
-# BARRA LATERAL (FILTROS E CARRINHO)
+# BARRA LATERAL (FILTROS E CARRINHO CORRIGIDO)
 # ==========================================
 with st.sidebar:
     st.markdown("### 🔍 Filtrar Vitrine")
@@ -165,10 +157,8 @@ with st.sidebar:
         st.info("O seu carrinho está vazio.")
     else:
         total_geral = 0
-        itens_para_remover = []
         
         for sku, qtd in st.session_state.carrinho.items():
-            # O carrinho busca o item exato pelo SKU (Variação de Tamanho específica)
             peca = df[df['ID SKU'] == sku]
             if not peca.empty:
                 row_peca = peca.iloc[0]
@@ -182,13 +172,16 @@ with st.sidebar:
                 st.text(f"{qtd}x R$ {preco:.2f} = R$ {subtotal:.2f}")
                 
                 col_sub, col_add, col_del = st.columns(3)
+                
+                # Botão Subtrair (-) corrigido
                 if col_sub.button("➖", key=f"sub_{sku}"):
                     if st.session_state.carrinho[sku] > 1:
                         st.session_state.carrinho[sku] -= 1
                     else:
-                        itens_para_remover.append(sku)
+                        del st.session_state.carrinho[sku]
                     st.rerun()
                 
+                # Botão Somar (+)
                 if col_add.button("➕", key=f"add_{sku}"):
                     estoque_max = int(row_peca.get('Estoque Atual', 1))
                     if st.session_state.carrinho[sku] < estoque_max:
@@ -197,14 +190,12 @@ with st.sidebar:
                         st.warning("Estoque máximo.")
                     st.rerun()
                     
+                # Botão Deletar (Lixeira) corrigido
                 if col_del.button("🗑️", key=f"del_{sku}"):
-                    itens_para_remover.append(sku)
+                    del st.session_state.carrinho[sku]
                     st.rerun()
                 
                 st.divider()
-
-        for sku in itens_para_remover:
-            del st.session_state.carrinho[sku]
             
         if st.session_state.carrinho:
             st.markdown(f"### Total: R$ {total_geral:.2f}")
@@ -240,19 +231,15 @@ if marca_selecionada != "Todas":
 if df_filtrado.empty:
     st.warning("Nenhuma peça encontrada com os filtros selecionados.")
 else:
-    # 1. Unificar a coluna de fotos para usar como chave de agrupamento
     coluna_link_principal = 'Foto Nova Link' if 'Foto Nova Link' in df_filtrado.columns else 'Foto Link'
     df_filtrado['Foto_Usada'] = df_filtrado[coluna_link_principal].fillna(df_filtrado.get('Foto Link', ''))
     
-    # 2. Preencher nulos nas colunas de grupo para evitar erros no groupby
     df_filtrado['Cor_Grupo'] = df_filtrado['Cor'].fillna('-')
     df_filtrado['Marca_Grupo'] = df_filtrado['Marca'].fillna('-')
     df_filtrado['Desc_Grupo'] = df_filtrado['Descrição'].fillna('Sem Descrição')
 
-    # 3. Agrupar as peças idênticas (mesma descrição, cor, marca, preço e foto)
     grupos = df_filtrado.groupby(['Desc_Grupo', 'Cor_Grupo', 'Marca_Grupo', 'Preço Venda (R$)', 'Foto_Usada'])
 
-    # Estruturar os grupos numa lista
     produtos_agrupados = []
     for (desc, cor, marca, preco, foto), dados_grupo in grupos:
         produtos_agrupados.append({
@@ -261,7 +248,7 @@ else:
             'marca': marca,
             'preco': preco,
             'foto': foto if foto != '' else None,
-            'variacoes': dados_grupo.to_dict('records') # Lista com os tamanhos e SKUs deste produto
+            'variacoes': dados_grupo.to_dict('records')
         })
 
     colunas = st.columns(3)
@@ -270,7 +257,6 @@ else:
         with colunas[i % 3]:
             with st.container(border=True):
                 
-                # Exibição da Imagem
                 id_imagem = extrair_id_drive(prod['foto'])
                 if id_imagem:
                     url_img_direta = f"https://drive.google.com/thumbnail?id={id_imagem}&sz=w800"
@@ -278,32 +264,25 @@ else:
                 else:
                     st.info("📷 Sem imagem")
                     
-                # Título e Informações base
                 st.markdown(f"### {prod['desc']}")
                 st.markdown(f"🏷️ **Marca:** {prod['marca']} | 🎨 **Cor:** {prod['cor']}")
                 st.markdown(f"<div class='preco-tag'>R$ {prod['preco']:.2f}</div>", unsafe_allow_html=True)
                 
-                # Lógica de seleção de Tamanho (Variações)
-                # Cria um dicionário para mapear facilmente 'Tamanho' -> 'Informações da Peça'
                 mapa_tamanhos = {str(v.get('Tamanho', '-')): v for v in prod['variacoes']}
                 lista_tamanhos = list(mapa_tamanhos.keys())
                 
-                # Dropdown para o cliente escolher o tamanho
                 tamanho_escolhido = st.selectbox(
                     "Tamanho:", 
                     lista_tamanhos, 
-                    key=f"sel_tam_{i}" # Chave única para o widget
+                    key=f"sel_tam_{i}"
                 )
                 
-                # Pega as informações do tamanho que o cliente selecionou
                 item_escolhido = mapa_tamanhos[tamanho_escolhido]
                 sku_atual = item_escolhido.get('ID SKU')
                 estoque_atual = int(item_escolhido.get('Estoque Atual', 1))
                 
-                # Mostra o estoque daquele tamanho
                 st.caption(f"📦 Em estoque: **{estoque_atual}** unidade(s)")
                 
-                # Botão de adicionar ao carrinho
                 qtd_carrinho = st.session_state.carrinho.get(sku_atual, 0)
                 
                 if st.button("🛒 Adicionar ao Carrinho", key=f"btn_add_{i}", width="stretch"):
