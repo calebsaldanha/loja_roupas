@@ -132,7 +132,7 @@ else:
         with colunas[index % 3]:
             with st.container(border=True):
                 
-                id_imagem = extrair_id_drive(row.get('Foto Link', None))
+                id_imagem = extrair_id_drive(row.get('Foto Nova Link', None))
                 
                 if id_imagem:
                     img_bytes = carregar_imagem_bytes(id_imagem)
