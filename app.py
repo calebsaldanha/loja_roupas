@@ -4,7 +4,7 @@ import re
 import urllib.parse
 
 # ==========================================
-# 🎨 CONFIGURAÇÃO DE IDENTIDADE VISUAL
+# CONFIGURAÇÃO DE IDENTIDADE VISUAL
 # ==========================================
 URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
 
@@ -265,7 +265,7 @@ else:
                     st.info("📷 Sem imagem")
                     
                 st.markdown(f"### {prod['desc']}")
-                st.markdown(f"🏷️ **Marca:** {prod['marca']} | 🎨 **Cor:** {prod['cor']}")
+                st.markdown(f" **Marca:** {prod['marca']} | **Cor:** {prod['cor']}")
                 st.markdown(f"<div class='preco-tag'>R$ {prod['preco']:.2f}</div>", unsafe_allow_html=True)
                 
                 mapa_tamanhos = {str(v.get('Tamanho', '-')): v for v in prod['variacoes']}
