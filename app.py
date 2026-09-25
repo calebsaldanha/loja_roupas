@@ -19,25 +19,30 @@ def carregar_dados():
     df = df[df['Estoque Atual'] > 0]
     return df
 
-# Extrai apenas o ID do link
+# Extrai o ID do link do Google Drive de forma flexível
 def extrair_id_drive(url):
     if pd.isna(url) or not isinstance(url, str):
         return None
-    match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
-    return match.group(1) if match else None
+    # Procura por padrões de ID do Google Drive (/d/ID ou id=ID)
+    match_d = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+    if match_d:
+        return match_d.group(1)
+    match_id = re.search(r'id=([a-zA-Z0-9-_]+)', url)
+    if match_id:
+        return match_id.group(1)
+    return None
 
-# Baixa a imagem com tratamento para evitar erros de formato
+# Baixa a imagem do Drive via bytes com validação
 @st.cache_data(show_spinner=False, ttl=3600)
 def carregar_imagem_bytes(id_imagem):
-    # Usando o link de exportação direta do Google Drive
     url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resposta = requests.get(url, headers=headers, timeout=10)
         if resposta.status_code == 200:
-            # Tenta abrir com o PIL para garantir que é uma imagem válida e suportada
+            # Verifica se o conteúdo é uma imagem válida
             img = Image.open(io.BytesIO(resposta.content))
-            img.verify() # Verifica se não está corrompida
+            img.verify()
             return resposta.content
     except Exception:
         return None
@@ -134,14 +139,16 @@ else:
         with colunas[index % 3]:
             with st.container(border=True):
                 
-                id_imagem = extrair_id_drive(row.get('Foto Nova Link', None))
+                # Verifica qual coluna de link está preenchida na planilha
+                coluna_link = 'Foto Nova Link' if 'Foto Nova Link' in row and pd.notna(row['Foto Nova Link']) else 'Foto Link'
+                id_imagem = extrair_id_drive(row.get(coluna_link, None))
                 
                 if id_imagem:
                     img_bytes = carregar_imagem_bytes(id_imagem)
                     if img_bytes:
                         st.image(img_bytes, width="stretch")
                     else:
-                        st.info("📷 Imagem indisponível ou formato inválido")
+                        st.info("📷 Verifique a permissão da pasta no Drive")
                 else:
                     st.info("📷 Sem link cadastrado")
                     
