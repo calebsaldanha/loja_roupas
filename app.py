@@ -11,7 +11,6 @@ URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas
 
 st.set_page_config(
     page_title="SALDANHA OUTLET | Moda Exclusiva",
-    page_icon="🍷",
     layout="wide"
 )
 
