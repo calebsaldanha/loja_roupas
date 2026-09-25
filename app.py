@@ -6,81 +6,110 @@ import urllib.parse
 # ==========================================
 # 🎨 CONFIGURAÇÃO DE IDENTIDADE VISUAL
 # ==========================================
-# Link RAW corrigido (direto para a imagem, sem a interface do GitHub)
 URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
 
 st.set_page_config(
     page_title="SALDANHA OUTLET | Moda Exclusiva",
-    page_icon="",
+    page_icon="🍷",
     layout="wide"
 )
 
-# Estilização CSS integrando a sua imagem de fundo
+# CSS Ajustado para Dark Mode e Imagem de Fundo na Tela Inteira
 st.markdown(f"""
     <style>
-    /* Fundo geral da página (mantido limpo para destacar as roupas) */
-    .main {{
-        background-color: #faf8f8;
-    }}
-    
-    /* Header da Loja com a Imagem que contém a logo */
-    .brand-header {{
-        background-image: url("{URL_BANNER_GITHUB}");
+    /* Aplica a imagem como fundo de toda a página (main) */
+    .stApp {{
+        background-image: linear-gradient(rgba(20, 5, 15, 0.8), rgba(20, 5, 15, 0.9)), url("{URL_BANNER_GITHUB}");
         background-size: cover;
         background-position: center;
-        width: 100%;
-        height: 350px; /* Altura ajustada para mostrar bem o banner */
-        border-radius: 16px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(88, 24, 69, 0.3);
+        background-attachment: fixed;
     }}
-
-    /* Cartões de Produtos */
+    
+    /* Header (Texto flutuando sobre o fundo escuro) */
+    .header-text {{
+        text-align: center;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }}
+    .brand-title {{
+        font-size: 4rem;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #ffffff;
+        text-transform: uppercase;
+        margin-bottom: -10px;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+    }}
+    .brand-subtitle {{
+        font-size: 1.5rem;
+        letter-spacing: 8px;
+        color: #d896a8;
+        font-weight: 600;
+        text-transform: uppercase;
+        text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
+        margin-bottom: 20px;
+    }}
+    
+    /* Cartões de Produtos - Vidro Fosco (Glassmorphism) para combinar com o fundo */
     div[data-testid="stVerticalBlockBorderWrapper"] {{
-        border-radius: 14px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-        border: 1px solid #f2e6e9;
-        background-color: #ffffff;
-        transition: all 0.3s ease;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: rgba(30, 10, 20, 0.6);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+        padding: 10px;
     }}
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 12px 25px rgba(88, 24, 69, 0.12);
-        border-color: #d1a1b8;
+        transform: translateY(-5px);
+        border-color: rgba(216, 150, 168, 0.5);
+    }}
+    
+    /* Textos dentro dos cartões */
+    div[data-testid="stVerticalBlockBorderWrapper"] p, 
+    div[data-testid="stVerticalBlockBorderWrapper"] h3 {{
+        color: #f0f0f0 !important;
     }}
 
-    /* Botões Principais em Bordô */
+    /* Botões Principais */
     .stButton button {{
-        background-color: #7d1c4a;
+        background-color: #8c2452;
         color: white;
-        border-radius: 10px;
-        font-weight: 600;
-        border: none;
-        transition: background-color 0.2s ease;
+        border-radius: 8px;
+        font-weight: bold;
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: all 0.2s ease;
     }}
     .stButton button:hover {{
-        background-color: #581845;
-        color: white;
+        background-color: #6a1a3d;
+        border-color: rgba(255,255,255,0.5);
     }}
-
+    
     .preco-tag {{
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: #7d1c4a;
-        margin-top: 0.5rem;
-        margin-bottom: 0.5rem;
+        font-size: 1.4rem;
+        font-weight: 900;
+        color: #e5a4b5;
+        margin: 10px 0;
     }}
 
+    /* Barra Lateral - Ajustada para Dark Mode */
     section[data-testid="stSidebar"] {{
-        background-color: #fff5f7;
-        border-right: 1px solid #f2e6e9;
+        background-color: rgba(20, 5, 15, 0.85);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }}
+    section[data-testid="stSidebar"] p, 
+    section[data-testid="stSidebar"] h3 {{
+        color: #e0e0e0;
     }}
     </style>
 """, unsafe_allow_html=True)
 
-# Aplica o HTML do Cabeçalho (Agora apenas a div vazia, pois a imagem já tem o texto)
+# Títulos desenhados via HTML (Ficam por cima do fundo da página)
 st.markdown("""
-    <div class="brand-header"></div>
+    <div class="header-text">
+        <div class="brand-title">Saldanha</div>
+        <div class="brand-subtitle">Outlet</div>
+    </div>
 """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=60)
@@ -222,7 +251,7 @@ else:
                 else:
                     st.info("📷 Sem imagem")
                     
-                st.subheader(row.get('Descrição', 'Peça'))
+                st.markdown(f"### {row.get('Descrição', 'Peça')}")
                 
                 st.markdown(f"🏷️ **Marca:** {row.get('Marca', '-')}  \n"
                             f"📐 **Tamanho:** {row.get('Tamanho', '-')} | 🎨 **Cor:** {row.get('Cor', '-')}")
