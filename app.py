@@ -31,7 +31,7 @@ st.markdown(f"""
         padding-bottom: 3rem;
     }}
     .brand-title {{
-        font-size: 4rem;
+        font-size: 3rem;
         font-weight: 800;
         letter-spacing: 4px;
         color: #ffffff;
