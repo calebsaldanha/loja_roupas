@@ -6,9 +6,40 @@ import requests
 import io
 from PIL import Image
 
-# Configuração da página
-st.set_page_config(page_title="Vitrine de Peças", layout="wide")
-st.title("🛍️ Vitrine Disponível")
+# Configuração da página e layout elegante
+st.set_page_config(
+    page_title="Saldanha Outlet | Vitrine Online",
+    page_icon="🛍️",
+    layout="wide"
+)
+
+# Estilização CSS customizada para deixar o visual mais moderno e profissional
+st.markdown("""
+    <style>
+    .main {
+        background-color: #fafafa;
+    }
+    h1 {
+        color: #111111;
+        font-weight: 700;
+    }
+    .stButton button {
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        border: 1px solid #eaeaea;
+        background-color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Título Principal da Loja
+st.title("🛍️ Saldanha Outlet — Peças Novas com Etiqueta")
+st.markdown("Explore o nosso catálogo, adicione os itens ao carrinho e feche a compra diretamente pelo WhatsApp de forma rápida!")
+st.divider()
 
 @st.cache_data(ttl=60)
 def carregar_dados():
@@ -19,11 +50,10 @@ def carregar_dados():
     df = df[df['Estoque Atual'] > 0]
     return df
 
-# Extrai o ID do link do Google Drive de forma flexível
+# Extrai o ID do link do Google Drive
 def extrair_id_drive(url):
     if pd.isna(url) or not isinstance(url, str):
         return None
-    # Procura por padrões de ID do Google Drive (/d/ID ou id=ID)
     match_d = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
     if match_d:
         return match_d.group(1)
@@ -40,7 +70,6 @@ def carregar_imagem_bytes(id_imagem):
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resposta = requests.get(url, headers=headers, timeout=10)
         if resposta.status_code == 200:
-            # Verifica se o conteúdo é uma imagem válida
             img = Image.open(io.BytesIO(resposta.content))
             img.verify()
             return resposta.content
@@ -54,7 +83,7 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-# Inicializa o Carrinho na sessão do utilizador
+# Inicializa o Carrinho na sessão do usuário
 if 'carrinho' not in st.session_state:
     st.session_state.carrinho = {}
 
@@ -62,10 +91,22 @@ if 'carrinho' not in st.session_state:
 numero_telemovel = "5511957602740" 
 
 # ==========================================
-# BARRA LATERAL (CARRINHO DE COMPRAS)
+# BARRA LATERAL (FILTROS E CARRINHO)
 # ==========================================
 with st.sidebar:
-    st.subheader("🛒 O seu Carrinho")
+    st.header("🔍 Filtros de Busca")
+    
+    # Filtro de Categoria
+    categorias_disponiveis = ["Todas"] + sorted(df['Categoria'].dropna().unique().tolist())
+    categoria_selecionada = st.selectbox("Filtrar por Categoria", categorias_disponiveis)
+    
+    # Filtro de Tamanho
+    tamanhos_disponiveis = ["Todos"] + sorted(df['Tamanho'].dropna().astype(str).unique().tolist())
+    tamanho_selecionado = st.selectbox("Filtrar por Tamanho", tamanhos_disponiveis)
+    
+    st.divider()
+    
+    st.subheader("🛒 Seu Carrinho")
     
     if not st.session_state.carrinho:
         st.info("O carrinho está vazio.")
@@ -98,7 +139,7 @@ with st.sidebar:
                     if st.session_state.carrinho[sku] < estoque_max:
                         st.session_state.carrinho[sku] += 1
                     else:
-                        st.warning("Limite de stock atingido.")
+                        st.warning("Limite de estoque.")
                     st.rerun()
                     
                 if col_del.button("🗑️", key=f"del_{sku}"):
@@ -121,25 +162,33 @@ with st.sidebar:
             msg_wpp += f"\n*Valor Total: R$ {total_geral:.2f}*\nPode confirmar a disponibilidade?"
             
             link_finalizar = f"https://wa.me/{numero_telemovel}?text={urllib.parse.quote(msg_wpp)}"
-            st.link_button("📲 Finalizar Compra no WhatsApp", link_finalizar, width="stretch")
+            st.link_button("📲 Finalizar no WhatsApp", link_finalizar, width="stretch")
             
             if st.button("Limpar Carrinho", width="stretch"):
                 st.session_state.carrinho = {}
                 st.rerun()
 
 # ==========================================
-# CORPO DA PÁGINA (VITRINE)
+# APLICAÇÃO DOS FILTROS NO DATAFRAME
 # ==========================================
-if df.empty:
-    st.warning("De momento, não existem peças disponíveis no stock.")
+df_filtrado = df.copy()
+if categoria_selecionada != "Todas":
+    df_filtrado = df_filtrado[df_filtrado['Categoria'] == categoria_selecionada]
+if tamanho_selecionado != "Todos":
+    df_filtrado = df_filtrado[df_filtrado['Tamanho'].astype(str) == tamanho_selecionado]
+
+# ==========================================
+# CORPO DA PÁGINA (VITRINE COM LAYOUT MELHORADO)
+# ==========================================
+if df_filtrado.empty:
+    st.warning("Nenhuma peça encontrada com os filtros selecionados.")
 else:
     colunas = st.columns(3)
 
-    for index, row in df.reset_index(drop=True).iterrows():
+    for index, row in df_filtrado.reset_index(drop=True).iterrows():
         with colunas[index % 3]:
             with st.container(border=True):
                 
-                # Verifica qual coluna de link está preenchida na planilha
                 coluna_link = 'Foto Nova Link' if 'Foto Nova Link' in row and pd.notna(row['Foto Nova Link']) else 'Foto Link'
                 id_imagem = extrair_id_drive(row.get(coluna_link, None))
                 
@@ -148,13 +197,16 @@ else:
                     if img_bytes:
                         st.image(img_bytes, width="stretch")
                     else:
-                        st.info("📷 Verifique a permissão da pasta no Drive")
+                        st.info("📷 Imagem indisponível no Drive")
                 else:
                     st.info("📷 Sem link cadastrado")
                     
                 st.subheader(row.get('Descrição', 'Sem Descrição'))
-                st.write(f"**Tamanho:** {row.get('Tamanho', '-')} | **Cor:** {row.get('Cor', '-')}")
-                st.write(f"**Marca:** {row.get('Marca', '-')}")
+                
+                # Tags de informações estilizadas
+                st.markdown(f"🏷️ **Marca:** {row.get('Marca', '-')}  \n"
+                            f"📐 **Tamanho:** {row.get('Tamanho', '-')} | 🎨 **Cor:** {row.get('Cor', '-')}")
+                
                 st.markdown(f"### R$ {row.get('Preço Venda (R$)', 0):.2f}")
                 
                 sku_atual = row.get('ID SKU')
@@ -168,4 +220,4 @@ else:
                         st.success("Adicionado!")
                         st.rerun()
                     else:
-                        st.error("Quantidade máxima em stock atingida.")
+                        st.error("Estoque máximo atingido.")
