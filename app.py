@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import urllib.parse
-import requests # Nova biblioteca para baixar as imagens
+import requests
 
 # Configuração da página
 st.set_page_config(page_title="Vitrine de Peças", layout="wide")
@@ -24,7 +24,7 @@ def extrair_id_drive(url):
     match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
     return match.group(1) if match else None
 
-# Baixa a imagem nos bastidores (com cache para não deixar o site lento)
+# Baixa a imagem nos bastidores
 @st.cache_data(show_spinner=False, ttl=3600)
 def carregar_imagem_bytes(id_imagem):
     url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
@@ -43,9 +43,86 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-# Seu número
+# Inicializa o Carrinho na sessão do utilizador
+if 'carrinho' not in st.session_state:
+    st.session_state.carrinho = {}
+
+# Seu número de telemóvel (WhatsApp)
 numero_telemovel = "5511957602740" 
 
+# ==========================================
+# BARRA LATERAL (CARRINHO DE COMPRAS)
+# ==========================================
+with st.sidebar:
+    st.subheader("🛒 O seu Carrinho")
+    
+    if not st.session_state.carrinho:
+        st.info("O carrinho está vazio.")
+    else:
+        total_geral = 0
+        itens_para_remover = []
+        
+        for sku, qtd in st.session_state.carrinho.items():
+            # Busca as informações da peça no DataFrame
+            peca = df[df['ID SKU'] == sku]
+            if not peca.empty:
+                row_peca = peca.iloc[0]
+                nome = row_peca.get('Descrição', 'Peça')
+                preco = float(row_peca.get('Preço Venda (R$)', 0))
+                subtotal = preco * qtd
+                total_geral += subtotal
+                
+                st.write(f"**{nome}** (Tam: {row_peca.get('Tamanho', '-')})")
+                st.text(f"Qtd: {qtd} x R$ {preco:.2f} = R$ {subtotal:.2f}")
+                
+                # Botões para gerir quantidades no carrinho
+                col_sub, col_add, col_del = st.columns(3)
+                if col_sub.button("➖", key=f"sub_{sku}"):
+                    if st.session_state.carrinho[sku] > 1:
+                        st.session_state.carrinho[sku] -= 1
+                    else:
+                        itens_para_remover.append(sku)
+                    st.rerun()
+                
+                if col_add.button("➕", key=f"add_{sku}"):
+                    estoque_max = int(row_peca.get('Estoque Atual', 1))
+                    if st.session_state.carrinho[sku] < estoque_max:
+                        st.session_state.carrinho[sku] += 1
+                    else:
+                        st.warning("Limite de stock atingido.")
+                    st.rerun()
+                    
+                if col_del.button("🗑️", key=f"del_{sku}"):
+                    itens_para_remover.append(sku)
+                    st.rerun()
+                
+                st.divider()
+
+        # Remove itens marcados para exclusão
+        for sku in itens_para_remover:
+            del st.session_state.carrinho[sku]
+            
+        if st.session_state.carrinho:
+            st.markdown(f"### Total: R$ {total_geral:.2f}")
+            
+            # Monta a mensagem estruturada para o WhatsApp com todos os itens
+            msg_wpp = "Olá! Gostaria de finalizar o pedido com os seguintes itens:\n\n"
+            for sku, qtd in st.session_state.carrinho.items():
+                peca = df[df['ID SKU'] == sku].iloc[0]
+                sub = float(peca.get('Preço Venda (R$)', 0)) * qtd
+                msg_wpp += f"- {qtd}x {peca.get('Descrição')} (ID: {sku}, Tam: {peca.get('Tamanho')}) - R$ {sub:.2f}\n"
+            msg_wpp += f"\n*Valor Total: R$ {total_geral:.2f}*\nPode confirmar a disponibilidade?"
+            
+            link_finalizar = f"https://wa.me/{numero_telemovel}?text={urllib.parse.quote(msg_wpp)}"
+            st.link_button("📲 Finalizar Compra no WhatsApp", link_finalizar, width="stretch")
+            
+            if st.button("Limpar Carrinho", width="stretch"):
+                st.session_state.carrinho = {}
+                st.rerun()
+
+# ==========================================
+# CORPO DA PÁGINA (VITRINE)
+# ==========================================
 if df.empty:
     st.warning("De momento, não existem peças disponíveis no stock.")
 else:
@@ -60,7 +137,6 @@ else:
                 if id_imagem:
                     img_bytes = carregar_imagem_bytes(id_imagem)
                     if img_bytes:
-                        # width="stretch" resolve os avisos amarelos no terminal
                         st.image(img_bytes, width="stretch")
                     else:
                         st.info("📷 Imagem indisponível no Drive")
@@ -72,7 +148,16 @@ else:
                 st.write(f"**Marca:** {row.get('Marca', '-')}")
                 st.markdown(f"### R$ {row.get('Preço Venda (R$)', 0):.2f}")
                 
-                mensagem = f"Olá! Tenho interesse na peça: {row.get('Descrição', '')} (ID: {row.get('ID SKU', '')}, Tamanho: {row.get('Tamanho', '-')}). Ainda está disponível?"
-                link_wpp = f"https://wa.me/{numero_telemovel}?text={urllib.parse.quote(mensagem)}"
+                sku_atual = row.get('ID SKU')
                 
-                st.link_button("Tenho Interesse no WhatsApp", link_wpp, use_container_width=True)
+                # Botão para adicionar ao carrinho
+                if st.button("🛒 Adicionar ao Carrinho", key=f"btn_{sku_atual}", width="stretch"):
+                    estoque_atual = int(row.get('Estoque Atual', 1))
+                    qtd_atual_carrinho = st.session_state.carrinho.get(sku_atual, 0)
+                    
+                    if qtd_atual_carrinho < estoque_atual:
+                        st.session_state.carrinho[sku_atual] = qtd_atual_carrinho + 1
+                        st.success("Adicionado!")
+                        st.rerun()
+                    else:
+                        st.error("Quantidade máxima em stock atingida.")
