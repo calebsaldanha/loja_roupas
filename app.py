@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import re
 import urllib.parse
-import requests
-import io
-from PIL import Image
 
 # Configuração da página e layout elegante
 st.set_page_config(
@@ -13,32 +10,60 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilização CSS customizada para deixar o visual mais moderno e profissional
+# Estilização CSS personalizada (UI/UX Design Minimalista & Premium)
 st.markdown("""
     <style>
+    /* Fundo geral mais limpo */
     .main {
-        background-color: #fafafa;
+        background-color: #f8f9fa;
     }
+    
+    /* Cabeçalho principal */
     h1 {
-        color: #111111;
-        font-weight: 700;
+        color: #1a1a1a;
+        font-weight: 800;
+        letter-spacing: -0.5px;
     }
-    .stButton button {
-        border-radius: 8px;
-        font-weight: 600;
-    }
+    
+    /* Estilização dos Cartões de Produtos */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        border-radius: 16px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.04);
         border: 1px solid #eaeaea;
-        background-color: white;
+        background-color: #ffffff;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        padding: 5px;
+    }
+    
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Botões estilizados */
+    .stButton button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: background-color 0.2s ease;
+    }
+    
+    /* Preço em destaque */
+    .preco-destaque {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #2c3e50;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Título Principal da Loja
-st.title("🛍️ Saldanha Outlet — Peças Novas com Etiqueta")
-st.markdown("Explore o nosso catálogo, adicione os itens ao carrinho e feche a compra diretamente pelo WhatsApp de forma rápida!")
+# Cabeçalho Visual (Banner da Loja)
+col_logo, col_desc = st.columns([1, 4])
+with col_logo:
+    st.markdown("### 🛍️")
+with col_desc:
+    st.title("Saldanha Outlet")
+    st.markdown("Peças exclusivas, novas e com etiqueta original. Escolha seus favoritos, monte o carrinho e finalize pelo WhatsApp com praticidade.")
+
 st.divider()
 
 @st.cache_data(ttl=60)
@@ -50,7 +75,7 @@ def carregar_dados():
     df = df[df['Estoque Atual'] > 0]
     return df
 
-# Extrai o ID do link do Google Drive
+# Extrai o ID do link do Google Drive de forma flexível
 def extrair_id_drive(url):
     if pd.isna(url) or not isinstance(url, str):
         return None
@@ -60,21 +85,6 @@ def extrair_id_drive(url):
     match_id = re.search(r'id=([a-zA-Z0-9-_]+)', url)
     if match_id:
         return match_id.group(1)
-    return None
-
-# Baixa a imagem do Drive via bytes com validação
-@st.cache_data(show_spinner=False, ttl=3600)
-def carregar_imagem_bytes(id_imagem):
-    url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        resposta = requests.get(url, headers=headers, timeout=10)
-        if resposta.status_code == 200:
-            img = Image.open(io.BytesIO(resposta.content))
-            img.verify()
-            return resposta.content
-    except Exception:
-        return None
     return None
 
 try:
@@ -87,29 +97,33 @@ except Exception as e:
 if 'carrinho' not in st.session_state:
     st.session_state.carrinho = {}
 
-# Seu número de telemóvel (WhatsApp)
+# Seu número de WhatsApp
 numero_telemovel = "5511957602740" 
 
 # ==========================================
-# BARRA LATERAL (FILTROS E CARRINHO)
+# BARRA LATERAL (FILTROS E CARRINHO REESTRUTURADOS)
 # ==========================================
 with st.sidebar:
-    st.header("🔍 Filtros de Busca")
+    st.header("🔍 Filtrar Vitrine")
     
     # Filtro de Categoria
     categorias_disponiveis = ["Todas"] + sorted(df['Categoria'].dropna().unique().tolist())
-    categoria_selecionada = st.selectbox("Filtrar por Categoria", categorias_disponiveis)
+    categoria_selecionada = st.selectbox("Categoria", categorias_disponiveis)
     
     # Filtro de Tamanho
     tamanhos_disponiveis = ["Todos"] + sorted(df['Tamanho'].dropna().astype(str).unique().tolist())
-    tamanho_selecionado = st.selectbox("Filtrar por Tamanho", tamanhos_disponiveis)
+    tamanho_selecionado = st.selectbox("Tamanho", tamanhos_disponiveis)
+    
+    # Filtro de Marca
+    marcas_disponiveis = ["Todas"] + sorted(df['Marca'].dropna().unique().tolist())
+    marca_selecionada = st.selectbox("Marca", marcas_disponiveis)
     
     st.divider()
     
-    st.subheader("🛒 Seu Carrinho")
+    st.header("🛒 Seu Carrinho")
     
     if not st.session_state.carrinho:
-        st.info("O carrinho está vazio.")
+        st.info("O seu carrinho está vazio. Escolha suas peças na vitrine!")
     else:
         total_geral = 0
         itens_para_remover = []
@@ -123,8 +137,9 @@ with st.sidebar:
                 subtotal = preco * qtd
                 total_geral += subtotal
                 
-                st.write(f"**{nome}** (Tam: {row_peca.get('Tamanho', '-')})")
-                st.text(f"Qtd: {qtd} x R$ {preco:.2f} = R$ {subtotal:.2f}")
+                st.markdown(f"**{nome}**")
+                st.caption(f"Tam: {row_peca.get('Tamanho', '-')} | Marca: {row_peca.get('Marca', '-')}")
+                st.text(f"{qtd}x R$ {preco:.2f} = R$ {subtotal:.2f}")
                 
                 col_sub, col_add, col_del = st.columns(3)
                 if col_sub.button("➖", key=f"sub_{sku}"):
@@ -139,7 +154,7 @@ with st.sidebar:
                     if st.session_state.carrinho[sku] < estoque_max:
                         st.session_state.carrinho[sku] += 1
                     else:
-                        st.warning("Limite de estoque.")
+                        st.warning("Estoque máximo.")
                     st.rerun()
                     
                 if col_del.button("🗑️", key=f"del_{sku}"):
@@ -162,26 +177,28 @@ with st.sidebar:
             msg_wpp += f"\n*Valor Total: R$ {total_geral:.2f}*\nPode confirmar a disponibilidade?"
             
             link_finalizar = f"https://wa.me/{numero_telemovel}?text={urllib.parse.quote(msg_wpp)}"
-            st.link_button("📲 Finalizar no WhatsApp", link_finalizar, width="stretch")
+            st.link_button("📲 Finalizar Compra no WhatsApp", link_finalizar, width="stretch")
             
             if st.button("Limpar Carrinho", width="stretch"):
                 st.session_state.carrinho = {}
                 st.rerun()
 
 # ==========================================
-# APLICAÇÃO DOS FILTROS NO DATAFRAME
+# FILTRAGEM DOS DADOS
 # ==========================================
 df_filtrado = df.copy()
 if categoria_selecionada != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Categoria'] == categoria_selecionada]
 if tamanho_selecionado != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Tamanho'].astype(str) == tamanho_selecionado]
+if marca_selecionada != "Todas":
+    df_filtrado = df_filtrado[df_filtrado['Marca'] == marca_selecionada]
 
 # ==========================================
-# CORPO DA PÁGINA (VITRINE COM LAYOUT MELHORADO)
+# CORPO DA PÁGINA (EXIBIÇÃO EM GRID ESTILIZADO)
 # ==========================================
 if df_filtrado.empty:
-    st.warning("Nenhuma peça encontrada com os filtros selecionados.")
+    st.info("Nenhuma peça encontrada com os filtros selecionados.")
 else:
     colunas = st.columns(3)
 
@@ -193,21 +210,18 @@ else:
                 id_imagem = extrair_id_drive(row.get(coluna_link, None))
                 
                 if id_imagem:
-                    img_bytes = carregar_imagem_bytes(id_imagem)
-                    if img_bytes:
-                        st.image(img_bytes, width="stretch")
-                    else:
-                        st.info("📷 Imagem indisponível no Drive")
+                    url_img_direta = f"https://drive.google.com/thumbnail?id={id_imagem}&sz=w800"
+                    st.image(url_img_direta, width="stretch")
                 else:
-                    st.info("📷 Sem link cadastrado")
+                    st.info("📷 Sem imagem")
                     
-                st.subheader(row.get('Descrição', 'Sem Descrição'))
+                st.subheader(row.get('Descrição', 'Peça'))
                 
-                # Tags de informações estilizadas
+                # Detalhes organizados em badges visuais
                 st.markdown(f"🏷️ **Marca:** {row.get('Marca', '-')}  \n"
                             f"📐 **Tamanho:** {row.get('Tamanho', '-')} | 🎨 **Cor:** {row.get('Cor', '-')}")
                 
-                st.markdown(f"### R$ {row.get('Preço Venda (R$)', 0):.2f}")
+                st.markdown(f"<div class='preco-destaque'>R$ {row.get('Preço Venda (R$)', 0):.2f}</div>", unsafe_allow_html=True)
                 
                 sku_atual = row.get('ID SKU')
                 
