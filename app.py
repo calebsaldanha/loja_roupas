@@ -19,25 +19,33 @@ def carregar_dados():
     df = df[df['Estoque Atual'] > 0]
     return df
 
-# Extrai apenas o ID do link
+# Extrai o ID do link do Google Drive (independente de ser /view, /file/d/ ou outro formato)
 def extrair_id_drive(url):
     if pd.isna(url) or not isinstance(url, str):
         return None
-    match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+    match = re.search(r'([a-zA-Z0-9-_]{25,})', url)
     return match.group(1) if match else None
 
-# Baixa a imagem com tratamento para evitar erros de formato
+# Baixa a imagem diretamente do Google Drive com tratamento de binários
 @st.cache_data(show_spinner=False, ttl=3600)
 def carregar_imagem_bytes(id_imagem):
-    # Usando o link de exportação direta do Google Drive
+    # Endpoint oficial de exportação/download direto do Google Drive
     url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resposta = requests.get(url, headers=headers, timeout=10)
+        
         if resposta.status_code == 200:
-            # Tenta abrir com o PIL para garantir que é uma imagem válida e suportada
+            # Verifica se o conteúdo retornado é realmente uma imagem e não HTML do Google
+            content_type = resposta.headers.get("content-type", "")
+            if "image" in content_type or resposta.content.startswith(b'\xff\xd8') or resposta.content.startswith(b'\x89PNG'):
+                img = Image.open(io.BytesIO(resposta.content))
+                img.verify()
+                return resposta.content
+            
+            # Tentativa de confirmação via PIL caso o content-type falhe
             img = Image.open(io.BytesIO(resposta.content))
-            img.verify() # Verifica se não está corrompida
+            img.verify()
             return resposta.content
     except Exception:
         return None
@@ -134,7 +142,9 @@ else:
         with colunas[index % 3]:
             with st.container(border=True):
                 
-                id_imagem = extrair_id_drive(row.get('Foto Nova Link', None))
+                # Altere aqui se o nome da sua coluna de link mudou na planilha
+                coluna_link = 'Foto Nova Link' if 'Foto Nova Link' in row else 'Foto Link'
+                id_imagem = extrair_id_drive(row.get(coluna_link, None))
                 
                 if id_imagem:
                     img_bytes = carregar_imagem_bytes(id_imagem)
