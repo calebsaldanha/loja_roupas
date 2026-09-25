@@ -3,6 +3,8 @@ import pandas as pd
 import re
 import urllib.parse
 import requests
+import io
+from PIL import Image
 
 # Configuração da página
 st.set_page_config(page_title="Vitrine de Peças", layout="wide")
@@ -24,16 +26,20 @@ def extrair_id_drive(url):
     match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
     return match.group(1) if match else None
 
-# Baixa a imagem nos bastidores
+# Baixa a imagem com tratamento para evitar erros de formato
 @st.cache_data(show_spinner=False, ttl=3600)
 def carregar_imagem_bytes(id_imagem):
+    # Usando o link de exportação direta do Google Drive
     url = f"https://drive.google.com/uc?export=download&id={id_imagem}"
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resposta = requests.get(url, headers=headers, timeout=10)
         if resposta.status_code == 200:
+            # Tenta abrir com o PIL para garantir que é uma imagem válida e suportada
+            img = Image.open(io.BytesIO(resposta.content))
+            img.verify() # Verifica se não está corrompida
             return resposta.content
-    except:
+    except Exception:
         return None
     return None
 
@@ -63,7 +69,6 @@ with st.sidebar:
         itens_para_remover = []
         
         for sku, qtd in st.session_state.carrinho.items():
-            # Busca as informações da peça no DataFrame
             peca = df[df['ID SKU'] == sku]
             if not peca.empty:
                 row_peca = peca.iloc[0]
@@ -75,7 +80,6 @@ with st.sidebar:
                 st.write(f"**{nome}** (Tam: {row_peca.get('Tamanho', '-')})")
                 st.text(f"Qtd: {qtd} x R$ {preco:.2f} = R$ {subtotal:.2f}")
                 
-                # Botões para gerir quantidades no carrinho
                 col_sub, col_add, col_del = st.columns(3)
                 if col_sub.button("➖", key=f"sub_{sku}"):
                     if st.session_state.carrinho[sku] > 1:
@@ -98,14 +102,12 @@ with st.sidebar:
                 
                 st.divider()
 
-        # Remove itens marcados para exclusão
         for sku in itens_para_remover:
             del st.session_state.carrinho[sku]
             
         if st.session_state.carrinho:
             st.markdown(f"### Total: R$ {total_geral:.2f}")
             
-            # Monta a mensagem estruturada para o WhatsApp com todos os itens
             msg_wpp = "Olá! Gostaria de finalizar o pedido com os seguintes itens:\n\n"
             for sku, qtd in st.session_state.carrinho.items():
                 peca = df[df['ID SKU'] == sku].iloc[0]
@@ -139,7 +141,7 @@ else:
                     if img_bytes:
                         st.image(img_bytes, width="stretch")
                     else:
-                        st.info("📷 Imagem indisponível no Drive")
+                        st.info("📷 Imagem indisponível ou formato inválido")
                 else:
                     st.info("📷 Sem link cadastrado")
                     
@@ -150,7 +152,6 @@ else:
                 
                 sku_atual = row.get('ID SKU')
                 
-                # Botão para adicionar ao carrinho
                 if st.button("🛒 Adicionar ao Carrinho", key=f"btn_{sku_atual}", width="stretch"):
                     estoque_atual = int(row.get('Estoque Atual', 1))
                     qtd_atual_carrinho = st.session_state.carrinho.get(sku_atual, 0)
