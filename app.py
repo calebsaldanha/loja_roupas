@@ -6,10 +6,12 @@ import urllib.parse
 # ==========================================
 # 🎨 CONFIGURAÇÃO DE IDENTIDADE VISUAL
 # ==========================================
+# Link RAW (direto para a imagem, sem a interface do GitHub)
 URL_BANNER_GITHUB = "https://raw.githubusercontent.com/calebsaldanha/loja_roupas/main/Gemini_Generated_Image_gr7w93gr7w93gr7w.jpg"
 
 st.set_page_config(
     page_title="SALDANHA OUTLET | Moda Exclusiva",
+    page_icon="🍷",
     layout="wide"
 )
 
@@ -49,7 +51,7 @@ st.markdown(f"""
         margin-bottom: 20px;
     }}
     
-    /* Cartões de Produtos - Vidro Fosco (Glassmorphism) para combinar com o fundo */
+    /* Cartões de Produtos - Vidro Fosco (Glassmorphism) */
     div[data-testid="stVerticalBlockBorderWrapper"] {{
         border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -88,7 +90,7 @@ st.markdown(f"""
         font-size: 1.4rem;
         font-weight: 900;
         color: #e5a4b5;
-        margin: 10px 0;
+        margin: 5px 0 15px 0;
     }}
 
     /* Barra Lateral - Ajustada para Dark Mode */
@@ -167,6 +169,7 @@ with st.sidebar:
         itens_para_remover = []
         
         for sku, qtd in st.session_state.carrinho.items():
+            # O carrinho busca o item exato pelo SKU (Variação de Tamanho específica)
             peca = df[df['ID SKU'] == sku]
             if not peca.empty:
                 row_peca = peca.iloc[0]
@@ -222,7 +225,7 @@ with st.sidebar:
                 st.rerun()
 
 # ==========================================
-# FILTRAGEM E VITRINE
+# FILTRAGEM DOS DADOS
 # ==========================================
 df_filtrado = df.copy()
 if categoria_selecionada != "Todas":
@@ -232,40 +235,82 @@ if tamanho_selecionado != "Todos":
 if marca_selecionada != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Marca'] == marca_selecionada]
 
+# ==========================================
+# AGRUPAMENTO DE PRODUTOS E VITRINE
+# ==========================================
 if df_filtrado.empty:
     st.warning("Nenhuma peça encontrada com os filtros selecionados.")
 else:
+    # 1. Unificar a coluna de fotos para usar como chave de agrupamento
+    coluna_link_principal = 'Foto Nova Link' if 'Foto Nova Link' in df_filtrado.columns else 'Foto Link'
+    df_filtrado['Foto_Usada'] = df_filtrado[coluna_link_principal].fillna(df_filtrado.get('Foto Link', ''))
+    
+    # 2. Preencher nulos nas colunas de grupo para evitar erros no groupby
+    df_filtrado['Cor_Grupo'] = df_filtrado['Cor'].fillna('-')
+    df_filtrado['Marca_Grupo'] = df_filtrado['Marca'].fillna('-')
+    df_filtrado['Desc_Grupo'] = df_filtrado['Descrição'].fillna('Sem Descrição')
+
+    # 3. Agrupar as peças idênticas (mesma descrição, cor, marca, preço e foto)
+    grupos = df_filtrado.groupby(['Desc_Grupo', 'Cor_Grupo', 'Marca_Grupo', 'Preço Venda (R$)', 'Foto_Usada'])
+
+    # Estruturar os grupos numa lista
+    produtos_agrupados = []
+    for (desc, cor, marca, preco, foto), dados_grupo in grupos:
+        produtos_agrupados.append({
+            'desc': desc,
+            'cor': cor,
+            'marca': marca,
+            'preco': preco,
+            'foto': foto if foto != '' else None,
+            'variacoes': dados_grupo.to_dict('records') # Lista com os tamanhos e SKUs deste produto
+        })
+
     colunas = st.columns(3)
 
-    for index, row in df_filtrado.reset_index(drop=True).iterrows():
-        with colunas[index % 3]:
+    for i, prod in enumerate(produtos_agrupados):
+        with colunas[i % 3]:
             with st.container(border=True):
                 
-                coluna_link = 'Foto Nova Link' if 'Foto Nova Link' in row and pd.notna(row['Foto Nova Link']) else 'Foto Link'
-                id_imagem = extrair_id_drive(row.get(coluna_link, None))
-                
+                # Exibição da Imagem
+                id_imagem = extrair_id_drive(prod['foto'])
                 if id_imagem:
                     url_img_direta = f"https://drive.google.com/thumbnail?id={id_imagem}&sz=w800"
                     st.image(url_img_direta, width="stretch")
                 else:
                     st.info("📷 Sem imagem")
                     
-                st.markdown(f"### {row.get('Descrição', 'Peça')}")
+                # Título e Informações base
+                st.markdown(f"### {prod['desc']}")
+                st.markdown(f"🏷️ **Marca:** {prod['marca']} | 🎨 **Cor:** {prod['cor']}")
+                st.markdown(f"<div class='preco-tag'>R$ {prod['preco']:.2f}</div>", unsafe_allow_html=True)
                 
-                st.markdown(f"🏷️ **Marca:** {row.get('Marca', '-')}  \n"
-                            f"📐 **Tamanho:** {row.get('Tamanho', '-')} | 🎨 **Cor:** {row.get('Cor', '-')}")
+                # Lógica de seleção de Tamanho (Variações)
+                # Cria um dicionário para mapear facilmente 'Tamanho' -> 'Informações da Peça'
+                mapa_tamanhos = {str(v.get('Tamanho', '-')): v for v in prod['variacoes']}
+                lista_tamanhos = list(mapa_tamanhos.keys())
                 
-                st.markdown(f"<div class='preco-tag'>R$ {row.get('Preço Venda (R$)', 0):.2f}</div>", unsafe_allow_html=True)
+                # Dropdown para o cliente escolher o tamanho
+                tamanho_escolhido = st.selectbox(
+                    "Tamanho:", 
+                    lista_tamanhos, 
+                    key=f"sel_tam_{i}" # Chave única para o widget
+                )
                 
-                sku_atual = row.get('ID SKU')
+                # Pega as informações do tamanho que o cliente selecionou
+                item_escolhido = mapa_tamanhos[tamanho_escolhido]
+                sku_atual = item_escolhido.get('ID SKU')
+                estoque_atual = int(item_escolhido.get('Estoque Atual', 1))
                 
-                if st.button("🛒 Adicionar ao Carrinho", key=f"btn_{sku_atual}", width="stretch"):
-                    estoque_atual = int(row.get('Estoque Atual', 1))
-                    qtd_atual_carrinho = st.session_state.carrinho.get(sku_atual, 0)
-                    
-                    if qtd_atual_carrinho < estoque_atual:
-                        st.session_state.carrinho[sku_atual] = qtd_atual_carrinho + 1
-                        st.success("Adicionado!")
+                # Mostra o estoque daquele tamanho
+                st.caption(f"📦 Em estoque: **{estoque_atual}** unidade(s)")
+                
+                # Botão de adicionar ao carrinho
+                qtd_carrinho = st.session_state.carrinho.get(sku_atual, 0)
+                
+                if st.button("🛒 Adicionar ao Carrinho", key=f"btn_add_{i}", width="stretch"):
+                    if qtd_carrinho < estoque_atual:
+                        st.session_state.carrinho[sku_atual] = qtd_carrinho + 1
+                        st.success(f"Tamanho {tamanho_escolhido} adicionado!")
                         st.rerun()
                     else:
                         st.error("Estoque máximo atingido.")
